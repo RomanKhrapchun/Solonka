@@ -115,7 +115,94 @@ class KindergartenService {
         throw new Error("Немає даних для формування документу.")
     }
 
+    async findGroupsByFilter(request) {
+        const { 
+            page = 1, 
+            limit = 16, 
+            sort_by = 'id', 
+            sort_direction = 'desc',
+            kindergarten_name,
+            group_name,
+            group_type,
+            ...whereConditions 
+        } = request.body;
 
+        const { offset } = paginate(page, limit);
+        
+        // Логування пошуку якщо є параметри фільтрації
+        if (kindergarten_name || group_name || group_type) {
+            await logRepository.createLog({
+                row_pk_id: null,
+                uid: request?.user?.id,
+                action: 'SEARCH',
+                client_addr: request?.ip,
+                application_name: 'Пошук груп садочку',
+                action_stamp_tx: new Date(),
+                action_stamp_stm: new Date(),
+                action_stamp_clk: new Date(),
+                schema_name: 'ower',
+                table_name: 'kindergarten_groups',
+                oid: '16505',
+            });
+        }
+
+        const userData = await KindergartenRepository.findGroupsByFilter({
+            limit,
+            offset,
+            sort_by,
+            sort_direction,
+            kindergarten_name,
+            group_name,
+            group_type,
+            ...whereConditions
+        });
+
+        return paginationData(userData[0], page, limit);
+    }
+
+    async createGroup(request) {
+        const {
+            kindergarten_name,
+            group_name,
+            group_type
+        } = request.body;
+
+        // Перевіряємо чи не існує група з такою назвою в цьому садочку
+        const existingGroup = await KindergartenRepository.getGroupByNameAndKindergarten(
+            group_name, 
+            kindergarten_name
+        );
+
+        if (existingGroup && existingGroup.length > 0) {
+            throw new Error('Група з такою назвою вже існує в цьому садочку');
+        }
+
+        const groupData = {
+            kindergarten_name,
+            group_name,
+            group_type,
+            created_at: new Date()
+        };
+
+        const result = await KindergartenRepository.createGroup(groupData);
+
+        // Логування створення групи
+        await logRepository.createLog({
+            row_pk_id: result.insertId || result.id,
+            uid: request?.user?.id,
+            action: 'CREATE',
+            client_addr: request?.ip,
+            application_name: 'Створення групи садочку',
+            action_stamp_tx: new Date(),
+            action_stamp_stm: new Date(),
+            action_stamp_clk: new Date(),
+            schema_name: 'ower',
+            table_name: 'kindergarten_groups',
+            oid: '16505',
+        });
+
+        return result;
+    }
 }
 
 module.exports = new KindergartenService();

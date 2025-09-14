@@ -68,6 +68,7 @@ const DistrictsPage = lazy(() => import('./pages/Districts/DistrictsPage.jsx'));
 // Kindergarten
 const KindergartenDebtorsList = lazy(() => import('./pages/Kindergarten/KindergartenList.jsx'))
 const PrintKindergartenCardView = lazy(() => import ('./components/Cards/PrintKindergartenCard.jsx'))
+const KindergartenGroups = lazy(() => import('./pages/Kindergarten/KindergartenGroups.jsx'));
 // Sports complex
 const SportsRequisite = lazy(() => import('./pages/SportsСomplex/Requisite.jsx'));
 const SportsBills = lazy(() => import('./pages/SportsСomplex/Bills.jsx'));
@@ -152,6 +153,7 @@ function App() {
                     {/*  Kindergarten */}
                     <Route exact path="kindergarten" element={<Suspense fallback={<Loader/>}><KindergartenDebtorsList /></Suspense>} />
                     <Route exact path="kindergarten/:id/print" element={<Suspense fallback={<Loader/>}><PrintKindergartenCardView /></Suspense>} />
+                    <Route exact path="kindergarten/groups" element={<Suspense fallback={<Loader/>}><KindergartenGroups /></Suspense>} />
                     {/* Districts Routes */}
                     <Route exact path="districts" element={<Suspense fallback={<Loader />}><DistrictsPage /></Suspense>} />
                     <Route exact path="districts/:districtId" element={<Suspense fallback={<Loader />}><DistrictList /></Suspense>} />

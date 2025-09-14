@@ -11,6 +11,7 @@ const displayDebtorFields = ['id', 'name', 'date', 'non_residential_debt', 'resi
 const displayDistrictFields = ['id', 'name', 'date', 'non_residential_debt', 'residential_debt', 'land_debt', 'orenda_debt', 'identification', 'mpz','district','village']
 const displayUtilitiesFields = ['payerident', 'fio', 'service', 'charge', 'adress'];
 const displayKindergartenFields = ['id', 'child_name', 'date', 'group_number','kindergarten_name','debt_amount']
+const displayKindergartenGroupsFields = ['id', 'kindergarten_name', 'group_name', 'group_type', 'created_at']
 const displayRequisitesFilterFields = ['id', 'kved', 'iban', 'edrpou', 'service_group_id'];
 const displayServicesFilterFields = ['id', 'name', 'unit', 'price', 'service_group_id'];
 const displayBillsFilterFields = ['id', 'account_number', 'payer', 'service_id', 'quantity', 'total_price', 'status'];
@@ -28,6 +29,7 @@ const allowedDebtorTableFilterFields = ['identification','debt_amount','debt_amo
 const allowedLocationsTableFilterFields = ['identification','name','district','village']
 const allowedUtilitiesTableFilterFields = ['payerident', 'title', 'service']
 const allowedKindergartenTableFilterFields = ['child_name']
+const allowedKindergartenGroupsFilterFields = ['kindergarten_name', 'group_name', 'group_type']
 const allowedRequisitesFilterFields = ['kved', 'iban', 'edrpou']; 
 const allowedServicesFilterFields = ['name', 'unit'];
 const allowedBillsFilterFields = ['account_number', 'payer', 'service_name', 'status'];
@@ -156,5 +158,7 @@ module.exports = {
     allowedLocationsTableFilterFields,
     allowedMessagesLogFilterFields,
     allowedMessagesLogFields,
-    displayFieldsPhone
+    displayFieldsPhone,
+    displayKindergartenGroupsFields,
+    allowedKindergartenGroupsFilterFields,
 }
