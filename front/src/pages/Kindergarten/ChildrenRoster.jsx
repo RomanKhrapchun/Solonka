@@ -31,24 +31,24 @@ const dropDownStyle = {width: '100%'}
 const childDropDownStyle = {justifyContent: 'center'}
 
 // Константи для збереження стану
-const KINDERGARTEN_GROUPS_STATE_KEY = 'kindergartenGroupsState';
+const CHILDREN_ROSTER_STATE_KEY = 'childrenRosterState';
 
-const saveKindergartenGroupsState = (state) => {
+const saveChildrenRosterState = (state) => {
     try {
-        sessionStorage.setItem(KINDERGARTEN_GROUPS_STATE_KEY, JSON.stringify({
+        sessionStorage.setItem(CHILDREN_ROSTER_STATE_KEY, JSON.stringify({
             sendData: state.sendData,
             selectData: state.selectData,
             isFilterOpen: state.isFilterOpen,
             timestamp: Date.now()
         }));
     } catch (error) {
-        console.warn('Failed to save kindergarten groups state:', error);
+        console.warn('Failed to save children roster state:', error);
     }
 };
 
-const loadKindergartenGroupsState = () => {
+const loadChildrenRosterState = () => {
     try {
-        const saved = sessionStorage.getItem(KINDERGARTEN_GROUPS_STATE_KEY);
+        const saved = sessionStorage.getItem(CHILDREN_ROSTER_STATE_KEY);
         if (saved) {
             const parsed = JSON.parse(saved);
             // Перевіряємо чи дані не старіші 30 хвилин
@@ -57,20 +57,20 @@ const loadKindergartenGroupsState = () => {
             }
         }
     } catch (error) {
-        console.warn('Failed to load kindergarten groups state:', error);
+        console.warn('Failed to load children roster state:', error);
     }
     return null;
 };
 
-const clearKindergartenGroupsState = () => {
+const clearChildrenRosterState = () => {
     try {
-        sessionStorage.removeItem(KINDERGARTEN_GROUPS_STATE_KEY);
+        sessionStorage.removeItem(CHILDREN_ROSTER_STATE_KEY);
     } catch (error) {
-        console.warn('Failed to clear kindergarten groups state:', error);
+        console.warn('Failed to clear children roster state:', error);
     }
 };
 
-const KindergartenGroups = () => {
+const ChildrenRoster = () => {
     const navigate = useNavigate()
     const notification = useNotification()
     const {store} = useContext(Context)
@@ -79,8 +79,8 @@ const KindergartenGroups = () => {
     const editModalNodeRef = useRef(null)
     const deleteModalNodeRef = useRef(null)
     
-    const [stateKindergarten, setStateKindergarten] = useState(() => {
-        const savedState = loadKindergartenGroupsState();
+    const [stateChildren, setStateChildren] = useState(() => {
+        const savedState = loadChildrenRosterState();
         
         if (savedState) {
             return {
@@ -112,45 +112,50 @@ const KindergartenGroups = () => {
         };
     });
 
-    // стан для модального вікна додавання групи
+    // стан для модального вікна додавання дитини
     const [modalState, setModalState] = useState({
         isOpen: false,
         loading: false,
         formData: {
-            kindergarten_name: '',
-            group_name: '',
-            group_type: ''
+            child_name: '',
+            parent_name: '',
+            phone_number: '',
+            group_id: ''
         }
     });
 
-    // стан для модального вікна редагування групи
+    // стан для модального вікна редагування дитини
     const [editModalState, setEditModalState] = useState({
         isOpen: false,
         loading: false,
-        groupId: null,
+        childId: null,
         formData: {
-            kindergarten_name: '',
-            group_name: '',
-            group_type: ''
+            child_name: '',
+            parent_name: '',
+            phone_number: '',
+            group_id: ''
         }
     });
 
-    // стан для модального вікна видалення групи
+    // стан для модального вікна видалення дитини
     const [deleteModalState, setDeleteModalState] = useState({
         isOpen: false,
         loading: false,
-        groupId: null,
-        groupName: ''
+        childId: null,
+        childName: ''
     });
 
+    // стан для груп (для селекту)
+    const [groupsData, setGroupsData] = useState([]);
+
     const isFirstAPI = useRef(true);
-    const {error, status, data, retryFetch} = useFetch('api/kindergarten/groups/filter', {
+    const {error, status, data, retryFetch} = useFetch('api/kindergarten/childrenRoster/filter', {
         method: 'post',
-        data: stateKindergarten.sendData
+        data: stateChildren.sendData
     })
     
-    const startRecord = ((stateKindergarten.sendData.page || 1) - 1) * stateKindergarten.sendData.limit + 1;
-    const endRecord = Math.min(startRecord + stateKindergarten.sendData.limit - 1, data?.totalItems || 1);
+    const startRecord = ((stateChildren.sendData.page || 1) - 1) * stateChildren.sendData.limit + 1;
+    const endRecord = Math.min(startRecord + stateChildren.sendData.limit - 1, data?.totalItems || 1);
 
     useEffect(() => {
         if (isFirstAPI.current) {
@@ -158,27 +163,59 @@ const KindergartenGroups = () => {
             return;
         }
         
-        retryFetch('api/kindergarten/groups/filter', {
+        retryFetch('api/kindergarten/childrenRoster/filter', {
             method: 'post',
-            data: stateKindergarten.sendData
+            data: stateChildren.sendData
         });
-    }, [stateKindergarten.sendData, retryFetch]);
+    }, [stateChildren.sendData, retryFetch]);
+
+    // Завантажуємо список груп для селекту
+    useEffect(() => {
+        console.log('Starting to load groups...');
+        const loadGroups = async () => {
+            try {
+                console.log('Making API call to groups...');
+                const response = await fetchFunction('api/kindergarten/groups/filter', {
+                    method: 'POST',
+                    data: { limit: 1000, page: 1 }
+                });
+                
+                console.log('Groups API response:', response);
+                
+                if (response?.data && Array.isArray(response.data.items)) {
+                    const groupOptions = response.data.items.map(group => ({
+                        value: group.id,
+                        label: `${group.kindergarten_name} - ${group.group_name}`
+                    }));
+                    setGroupsData(groupOptions);
+                    console.log('Groups loaded successfully:', groupOptions);
+                } else {
+                    console.warn('No groups in response or invalid format');
+                    setGroupsData([]);
+                }
+            } catch (error) {
+                console.error('Error loading groups:', error);
+                setGroupsData([]);
+            }
+        };
+        loadGroups();
+    }, []);
 
     // Зберігання стану
     useEffect(() => {
-        saveKindergartenGroupsState(stateKindergarten);
-    }, [stateKindergarten]);
+        saveChildrenRosterState(stateChildren);
+    }, [stateChildren]);
 
     // Очищення стану при розмонтуванні
     useEffect(() => {
         return () => {
-            clearKindergartenGroupsState();
+            clearChildrenRosterState();
         };
     }, []);
 
     const createSortableColumn = (title, dataIndex, render = null, width = null) => {
-        const isActive = stateKindergarten.sendData.sort_by === dataIndex;
-        const direction = stateKindergarten.sendData.sort_direction;
+        const isActive = stateChildren.sendData.sort_by === dataIndex;
+        const direction = stateChildren.sendData.sort_direction;
         
         return {
             title: (
@@ -198,15 +235,15 @@ const KindergartenGroups = () => {
     };
 
     const handleSort = (column) => {
-        const currentSortBy = stateKindergarten.sendData.sort_by;
-        const currentDirection = stateKindergarten.sendData.sort_direction;
+        const currentSortBy = stateChildren.sendData.sort_by;
+        const currentDirection = stateChildren.sendData.sort_direction;
         
         let newDirection = 'asc';
         if (currentSortBy === column && currentDirection === 'asc') {
             newDirection = 'desc';
         }
 
-        setStateKindergarten(prev => ({
+        setStateChildren(prev => ({
             ...prev,
             sendData: {
                 ...prev.sendData,
@@ -219,15 +256,12 @@ const KindergartenGroups = () => {
 
     const columnTable = useMemo(() => {
         let columns = [
-            createSortableColumn('Назва садочка', 'kindergarten_name', null, '200px'),
-            createSortableColumn('Назва групи', 'group_name', null, '150px'),
-            createSortableColumn('Тип групи', 'group_type', (value) => {
-                const typeLabels = {
-                    'young': 'Молодша',
-                    'older': 'Старша'
-                };
-                return typeLabels[value] || value; // Просто текст без стилізації
-            }, '120px'),
+            createSortableColumn('ПІБ дитини', 'child_name', null, '200px'),
+            createSortableColumn('ПІБ батьків', 'parent_name', null, '200px'),
+            createSortableColumn('Контактний номер', 'phone_number', null, '150px'),
+            createSortableColumn('Група', 'group_name', (value, record) => {
+                return `${record.kindergarten_name} - ${value}`;
+            }, '250px'),
             {
                 title: 'Дія',
                 dataIndex: 'action',
@@ -257,16 +291,19 @@ const KindergartenGroups = () => {
             }
         ];
         return columns;
-    }, [stateKindergarten.sendData.sort_by, stateKindergarten.sendData.sort_direction]);
+    }, [stateChildren.sendData.sort_by, stateChildren.sendData.sort_direction]);
 
     const tableData = useMemo(() => {
         if (data?.items?.length) {
             return data.items.map((el) => ({
                 key: el.id,
                 id: el.id,
-                kindergarten_name: el.kindergarten_name,
+                child_name: el.child_name,
+                parent_name: el.parent_name,
+                phone_number: el.phone_number,
+                group_id: el.group_id,
                 group_name: el.group_name,
-                group_type: el.group_type,
+                kindergarten_name: el.kindergarten_name,
             }));
         }
         return [];
@@ -277,8 +314,8 @@ const KindergartenGroups = () => {
             label: '16',
             key: '16',
             onClick: () => {
-                if (stateKindergarten.sendData.limit !== 16) {
-                    setStateKindergarten(prevState => ({
+                if (stateChildren.sendData.limit !== 16) {
+                    setStateChildren(prevState => ({
                         ...prevState,
                         sendData: {
                             ...prevState.sendData,
@@ -293,8 +330,8 @@ const KindergartenGroups = () => {
             label: '32',
             key: '32',
             onClick: () => {
-                if (stateKindergarten.sendData.limit !== 32) {
-                    setStateKindergarten(prevState => ({
+                if (stateChildren.sendData.limit !== 32) {
+                    setStateChildren(prevState => ({
                         ...prevState,
                         sendData: {
                             ...prevState.sendData,
@@ -309,8 +346,8 @@ const KindergartenGroups = () => {
             label: '48',
             key: '48',
             onClick: () => {
-                if (stateKindergarten.sendData.limit !== 48) {
-                    setStateKindergarten(prevState => ({
+                if (stateChildren.sendData.limit !== 48) {
+                    setStateChildren(prevState => ({
                         ...prevState,
                         sendData: {
                             ...prevState.sendData,
@@ -324,14 +361,14 @@ const KindergartenGroups = () => {
     ]
 
     const filterHandleClick = () => {
-        setStateKindergarten(prevState => ({
+        setStateChildren(prevState => ({
             ...prevState,
             isFilterOpen: !prevState.isFilterOpen,
         }))
     }
 
     const closeFilterDropdown = () => {
-        setStateKindergarten(prevState => ({
+        setStateChildren(prevState => ({
             ...prevState,
             isFilterOpen: false,
         }))
@@ -339,16 +376,16 @@ const KindergartenGroups = () => {
 
     // Перевіряємо чи є активні фільтри
     const hasActiveFilters = useMemo(() => {
-        return Object.values(stateKindergarten.selectData).some(value => {
+        return Object.values(stateChildren.selectData).some(value => {
             if (Array.isArray(value) && !value.length) {
                 return false
             }
             return value !== null && value !== undefined && value !== ''
         })
-    }, [stateKindergarten.selectData])
+    }, [stateChildren.selectData])
 
     const onHandleChange = (name, value) => {
-        setStateKindergarten(prevState => ({
+        setStateChildren(prevState => ({
             ...prevState,
             selectData: {
                 ...prevState.selectData,
@@ -358,11 +395,11 @@ const KindergartenGroups = () => {
     }
 
     const resetFilters = () => {
-        if (Object.values(stateKindergarten.selectData).some(Boolean)) {
-            setStateKindergarten((prev) => ({ ...prev, selectData: {} }));
+        if (Object.values(stateChildren.selectData).some(Boolean)) {
+            setStateChildren((prev) => ({ ...prev, selectData: {} }));
         }
-        if (!hasOnlyAllowedParams(stateKindergarten.sendData, ['limit', 'page', 'sort_by', 'sort_direction'])) {
-            setStateKindergarten((prev) => ({
+        if (!hasOnlyAllowedParams(stateChildren.sendData, ['limit', 'page', 'sort_by', 'sort_direction'])) {
+            setStateChildren((prev) => ({
                 ...prev,
                 sendData: { 
                     limit: prev.sendData.limit, 
@@ -376,14 +413,14 @@ const KindergartenGroups = () => {
     };
 
     const applyFilter = () => {
-        const isAnyInputFilled = Object.values(stateKindergarten.selectData).some((v) =>
+        const isAnyInputFilled = Object.values(stateChildren.selectData).some((v) =>
             Array.isArray(v) ? v.length : v,
         );
         if (!isAnyInputFilled) return;
 
-        const validation = validateFilters(stateKindergarten.selectData);
+        const validation = validateFilters(stateChildren.selectData);
         if (!validation.error) {
-            setStateKindergarten((prev) => ({
+            setStateChildren((prev) => ({
                 ...prev,
                 sendData: { 
                     ...prev.sendData,
@@ -403,8 +440,8 @@ const KindergartenGroups = () => {
     };
 
     const onPageChange = useCallback((page) => {
-        if (stateKindergarten.sendData.page !== page) {
-            setStateKindergarten(prevState => ({
+        if (stateChildren.sendData.page !== page) {
+            setStateChildren(prevState => ({
                 ...prevState,
                 sendData: {
                     ...prevState.sendData,
@@ -412,7 +449,7 @@ const KindergartenGroups = () => {
                 }
             }))
         }
-    }, [stateKindergarten.sendData.page])
+    }, [stateChildren.sendData.page])
 
     // Функції для модального вікна додавання
     const openModal = () => {
@@ -420,9 +457,10 @@ const KindergartenGroups = () => {
             ...prev,
             isOpen: true,
             formData: {
-                kindergarten_name: '',
-                group_name: '',
-                group_type: ''
+                child_name: '',
+                parent_name: '',
+                phone_number: '',
+                group_id: ''
             }
         }));
         document.body.style.overflow = 'hidden';
@@ -445,11 +483,11 @@ const KindergartenGroups = () => {
         }));
     };
 
-    const handleSaveGroup = async () => {
-        const { kindergarten_name, group_name, group_type } = modalState.formData;
+    const handleSaveChild = async () => {
+        const { child_name, parent_name, phone_number, group_id } = modalState.formData;
         
         // Валідація
-        if (!kindergarten_name.trim() || !group_name.trim() || !group_type) {
+        if (!child_name.trim() || !parent_name.trim() || !phone_number.trim() || !group_id) {
             notification({
                 type: 'warning',
                 placement: 'top',
@@ -462,12 +500,13 @@ const KindergartenGroups = () => {
         setModalState(prev => ({ ...prev, loading: true }));
 
         try {
-            await fetchFunction('api/kindergarten/groups', {
+            await fetchFunction('api/kindergarten/childrenRoster', {
                 method: 'POST',
                 data: {
-                    kindergarten_name: kindergarten_name.trim(),
-                    group_name: group_name.trim(),
-                    group_type: String(group_type)
+                    child_name: child_name.trim(),
+                    parent_name: parent_name.trim(),
+                    phone_number: phone_number.trim(),
+                    group_id: parseInt(group_id)
                 }
             });
 
@@ -475,15 +514,15 @@ const KindergartenGroups = () => {
                 type: 'success',
                 placement: 'top',
                 title: 'Успіх',
-                message: 'Групу успішно додано',
+                message: 'Дитину успішно додано',
             });
 
             closeModal();
             
             // Оновлюємо список
-            retryFetch('api/kindergarten/groups/filter', {
+            retryFetch('api/kindergarten/childrenRoster/filter', {
                 method: 'post',
-                data: stateKindergarten.sendData,
+                data: stateChildren.sendData,
             });
 
         } catch (error) {
@@ -491,7 +530,7 @@ const KindergartenGroups = () => {
                 type: 'error',
                 placement: 'top',
                 title: 'Помилка',
-                message: error.message || 'Не вдалося додати групу',
+                message: error.message || 'Не вдалося додати дитину',
             });
         } finally {
             setModalState(prev => ({ ...prev, loading: false }));
@@ -503,11 +542,12 @@ const KindergartenGroups = () => {
         setEditModalState({
             isOpen: true,
             loading: false,
-            groupId: record.id,
+            childId: record.id,
             formData: {
-                kindergarten_name: record.kindergarten_name,
-                group_name: record.group_name,
-                group_type: record.group_type
+                child_name: record.child_name,
+                parent_name: record.parent_name,
+                phone_number: record.phone_number,
+                group_id: record.group_id
             }
         });
         document.body.style.overflow = 'hidden';
@@ -530,11 +570,11 @@ const KindergartenGroups = () => {
         }));
     };
 
-    const handleUpdateGroup = async () => {
-        const { kindergarten_name, group_name, group_type } = editModalState.formData;
+    const handleUpdateChild = async () => {
+        const { child_name, parent_name, phone_number, group_id } = editModalState.formData;
         
         // Валідація
-        if (!kindergarten_name.trim() || !group_name.trim() || !group_type) {
+        if (!child_name.trim() || !parent_name.trim() || !phone_number.trim() || !group_id) {
             notification({
                 type: 'warning',
                 placement: 'top',
@@ -547,12 +587,13 @@ const KindergartenGroups = () => {
         setEditModalState(prev => ({ ...prev, loading: true }));
 
         try {
-            await fetchFunction(`api/kindergarten/groups/${editModalState.groupId}`, {
+            await fetchFunction(`api/kindergarten/children/${editModalState.childId}`, {
                 method: 'PUT',
                 data: {
-                    kindergarten_name: kindergarten_name.trim(),
-                    group_name: group_name.trim(),
-                    group_type: String(group_type)
+                    child_name: child_name.trim(),
+                    parent_name: parent_name.trim(),
+                    phone_number: phone_number.trim(),
+                    group_id: parseInt(group_id)
                 }
             });
 
@@ -560,15 +601,15 @@ const KindergartenGroups = () => {
                 type: 'success',
                 placement: 'top',
                 title: 'Успіх',
-                message: 'Групу успішно оновлено',
+                message: 'Дані дитини успішно оновлено',
             });
 
             closeEditModal();
             
             // Оновлюємо список
-            retryFetch('api/kindergarten/groups/filter', {
+            retryFetch('api/kindergarten/childrenRoster/filter', {
                 method: 'post',
-                data: stateKindergarten.sendData,
+                data: stateChildren.sendData,
             });
 
         } catch (error) {
@@ -576,7 +617,7 @@ const KindergartenGroups = () => {
                 type: 'error',
                 placement: 'top',
                 title: 'Помилка',
-                message: error.message || 'Не вдалося оновити групу',
+                message: error.message || 'Не вдалося оновити дані дитини',
             });
         } finally {
             setEditModalState(prev => ({ ...prev, loading: false }));
@@ -588,8 +629,8 @@ const KindergartenGroups = () => {
         setDeleteModalState({
             isOpen: true,
             loading: false,
-            groupId: record.id,
-            groupName: record.group_name
+            childId: record.id,
+            childName: record.child_name
         });
         document.body.style.overflow = 'hidden';
     };
@@ -599,11 +640,11 @@ const KindergartenGroups = () => {
         document.body.style.overflow = 'auto';
     };
 
-    const handleDeleteGroup = async () => {
+    const handleDeleteChild = async () => {
         setDeleteModalState(prev => ({ ...prev, loading: true }));
 
         try {
-            await fetchFunction(`api/kindergarten/groups/${deleteModalState.groupId}`, {
+            await fetchFunction(`api/kindergarten/childrenRoster/${deleteModalState.childId}`, {
                 method: 'DELETE'
             });
 
@@ -611,15 +652,15 @@ const KindergartenGroups = () => {
                 type: 'success',
                 placement: 'top',
                 title: 'Успіх',
-                message: 'Групу успішно видалено',
+                message: 'Дитину успішно видалено',
             });
 
             closeDeleteModal();
             
             // Оновлюємо список
-            retryFetch('api/kindergarten/groups/filter', {
+            retryFetch('api/kindergarten/childrenRoster/filter', {
                 method: 'post',
-                data: stateKindergarten.sendData,
+                data: stateChildren.sendData,
             });
 
         } catch (error) {
@@ -627,7 +668,7 @@ const KindergartenGroups = () => {
                 type: 'error',
                 placement: 'top',
                 title: 'Помилка',
-                message: error.message || 'Не вдалося видалити групу',
+                message: error.message || 'Не вдалося видалити дитину',
             });
         } finally {
             setDeleteModalState(prev => ({ ...prev, loading: false }));
@@ -656,27 +697,27 @@ const KindergartenGroups = () => {
                                 <Button
                                     onClick={openModal}
                                     icon={addIcon}>
-                                    Додати групу
+                                    Додати дитину
                                 </Button>
                                 <Dropdown
                                     icon={dropDownIcon}
                                     iconPosition="right"
                                     style={dropDownStyle}
                                     childStyle={childDropDownStyle}
-                                    caption={`Записів: ${stateKindergarten.sendData.limit}`}
+                                    caption={`Записів: ${stateChildren.sendData.limit}`}
                                     menu={itemMenu}/>
                                 <Button
                                     className={`table-filter-trigger ${hasActiveFilters ? 'has-active-filters' : ''}`}
                                     onClick={filterHandleClick}
                                     icon={filterIcon}>
-                                    Фільтри {hasActiveFilters && `(${Object.keys(stateKindergarten.selectData).filter(key => stateKindergarten.selectData[key]).length})`}
+                                    Фільтри {hasActiveFilters && `(${Object.keys(stateChildren.selectData).filter(key => stateChildren.selectData[key]).length})`}
                                 </Button>
 
                                 {/* Dropdown фільтр */}
                                 <FilterDropdown
-                                    isOpen={stateKindergarten.isFilterOpen}
+                                    isOpen={stateChildren.isFilterOpen}
                                     onClose={closeFilterDropdown}
-                                    filterData={stateKindergarten.selectData}
+                                    filterData={stateChildren.selectData}
                                     onFilterChange={onHandleChange}
                                     onApplyFilter={applyFilter}
                                     onResetFilters={resetFilters}
@@ -696,7 +737,7 @@ const KindergartenGroups = () => {
                                     className="m-b"
                                     currentPage={parseInt(data?.currentPage) || 1}
                                     totalCount={data?.totalItems || 1}
-                                    pageSize={stateKindergarten.sendData.limit}
+                                    pageSize={stateChildren.sendData.limit}
                                     onPageChange={onPageChange}/>
                             </div>
                         </div>
@@ -704,26 +745,26 @@ const KindergartenGroups = () => {
                 </React.Fragment> : null
             }
             
-            {/* Модальне вікно для додавання групи */}
+            {/* Модальне вікно для додавання дитини */}
             <Transition in={modalState.isOpen} timeout={200} unmountOnExit nodeRef={modalNodeRef}>
                 {state => (
                     <Modal
                         ref={modalNodeRef}
                         className={`modal-window-wrapper ${state === 'entered' ? 'modal-window-wrapper--active' : ''}`}
                         onClose={closeModal}
-                        onOk={handleSaveGroup}
+                        onOk={handleSaveChild}
                         confirmLoading={modalState.loading}
                         cancelText="Відхилити"
                         okText="Зберегти"
-                        title="Додати нову групу садочка"
+                        title="Додати нову дитину"
                     >
                         <div className="modal-form">
                             <div className="form-group">
                                 <Input
-                                    label="Назва садочка"
-                                    placeholder="Введіть назву садочка"
-                                    name="kindergarten_name"
-                                    value={modalState.formData.kindergarten_name}
+                                    label="ПІБ дитини"
+                                    placeholder="Введіть ПІБ дитини"
+                                    name="child_name"
+                                    value={modalState.formData.child_name}
                                     onChange={handleModalInputChange}
                                     required
                                 />
@@ -731,10 +772,21 @@ const KindergartenGroups = () => {
                             
                             <div className="form-group">
                                 <Input
-                                    label="Назва групи"
-                                    placeholder="Введіть назву групи"
-                                    name="group_name"
-                                    value={modalState.formData.group_name}
+                                    label="ПІБ батьків"
+                                    placeholder="Введіть ПІБ батьків"
+                                    name="parent_name"
+                                    value={modalState.formData.parent_name}
+                                    onChange={handleModalInputChange}
+                                    required
+                                />
+                            </div>
+                            
+                            <div className="form-group">
+                                <Input
+                                    label="Контактний номер телефону"
+                                    placeholder="Введіть номер телефону"
+                                    name="phone_number"
+                                    value={modalState.formData.phone_number}
                                     onChange={handleModalInputChange}
                                     required
                                 />
@@ -742,22 +794,18 @@ const KindergartenGroups = () => {
                             
                             <div className="form-group">
                                 <Select
-                                    label="Тип групи"
-                                    placeholder="Оберіть тип групи"
-                                    name="group_type"
-                                    options={[
-                                        { value: 'young', label: 'Молодша' },
-                                        { value: 'older', label: 'Старша' }
-                                    ]}
-                                    value={modalState.formData.group_type ? 
-                                        modalState.formData.group_type === 'young' 
-                                            ? { value: 'young', label: 'Молодша' }
-                                            : { value: 'older', label: 'Старша' }
+                                    label="Група"
+                                    placeholder={groupsData.length > 0 ? "Оберіть групу" : "Завантаження груп..."}
+                                    name="group_id"
+                                    options={groupsData}
+                                    value={modalState.formData.group_id ? 
+                                        groupsData.find(group => group.value == modalState.formData.group_id) || null
                                         : null
                                     }
                                     onChange={handleModalInputChange}
                                     style={dropDownStyle}
                                     required
+                                    //disabled={groupsData.length === 0}
                                 />
                             </div>
                         </div>
@@ -765,26 +813,26 @@ const KindergartenGroups = () => {
                 )}
             </Transition>
 
-            {/* Модальне вікно для редагування групи */}
+            {/* Модальне вікно для редагування дитини */}
             <Transition in={editModalState.isOpen} timeout={200} unmountOnExit nodeRef={editModalNodeRef}>
                 {state => (
                     <Modal
                         ref={editModalNodeRef}
                         className={`modal-window-wrapper ${state === 'entered' ? 'modal-window-wrapper--active' : ''}`}
                         onClose={closeEditModal}
-                        onOk={handleUpdateGroup}
+                        onOk={handleUpdateChild}
                         confirmLoading={editModalState.loading}
                         cancelText="Відхилити"
                         okText="Зберегти"
-                        title="Редагувати групу садочка"
+                        title="Редагувати дані дитини"
                     >
                         <div className="modal-form">
                             <div className="form-group">
                                 <Input
-                                    label="Назва садочка"
-                                    placeholder="Введіть назву садочка"
-                                    name="kindergarten_name"
-                                    value={editModalState.formData.kindergarten_name}
+                                    label="ПІБ дитини"
+                                    placeholder="Введіть ПІБ дитини"
+                                    name="child_name"
+                                    value={editModalState.formData.child_name}
                                     onChange={handleEditInputChange}
                                     required
                                 />
@@ -792,10 +840,21 @@ const KindergartenGroups = () => {
                             
                             <div className="form-group">
                                 <Input
-                                    label="Назва групи"
-                                    placeholder="Введіть назву групи"
-                                    name="group_name"
-                                    value={editModalState.formData.group_name}
+                                    label="ПІБ батьків"
+                                    placeholder="Введіть ПІБ батьків"
+                                    name="parent_name"
+                                    value={editModalState.formData.parent_name}
+                                    onChange={handleEditInputChange}
+                                    required
+                                />
+                            </div>
+                            
+                            <div className="form-group">
+                                <Input
+                                    label="Контактний номер телефону"
+                                    placeholder="Введіть номер телефону"
+                                    name="phone_number"
+                                    value={editModalState.formData.phone_number}
                                     onChange={handleEditInputChange}
                                     required
                                 />
@@ -803,17 +862,12 @@ const KindergartenGroups = () => {
                             
                             <div className="form-group">
                                 <Select
-                                    label="Тип групи"
-                                    placeholder="Оберіть тип групи"
-                                    name="group_type"
-                                    options={[
-                                        { value: 'young', label: 'Молодша' },
-                                        { value: 'older', label: 'Старша' }
-                                    ]}
-                                    value={editModalState.formData.group_type ? 
-                                        editModalState.formData.group_type === 'young' 
-                                            ? { value: 'young', label: 'Молодша' }
-                                            : { value: 'older', label: 'Старша' }
+                                    label="Група"
+                                    placeholder="Оберіть групу"
+                                    name="group_id"
+                                    options={groupsData}
+                                    value={editModalState.formData.group_id ? 
+                                        groupsData.find(group => group.value == editModalState.formData.group_id) || null
                                         : null
                                     }
                                     onChange={handleEditInputChange}
@@ -833,14 +887,14 @@ const KindergartenGroups = () => {
                         ref={deleteModalNodeRef}
                         className={`modal-window-wrapper ${state === 'entered' ? 'modal-window-wrapper--active' : ''}`}
                         onClose={closeDeleteModal}
-                        onOk={handleDeleteGroup}
+                        onOk={handleDeleteChild}
                         confirmLoading={deleteModalState.loading}
                         cancelText="Скасувати"
                         okText="Так, видалити"
                         title="Підтвердження видалення"
                     >
                         <p className="paragraph">
-                            Ви впевнені, що бажаєте видалити групу <strong>"{deleteModalState.groupName}"</strong>?
+                            Ви впевнені, що бажаєте видалити дитину <strong>"{deleteModalState.childName}"</strong>?
                         </p>
                     </Modal>
                 )}
@@ -849,4 +903,4 @@ const KindergartenGroups = () => {
     )
 }
 
-export default KindergartenGroups;
+export default ChildrenRoster;
